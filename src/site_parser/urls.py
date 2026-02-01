@@ -4,6 +4,7 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 
 def strip_www(hostname: str) -> str:
+    """Удаляет префикс www у доменного имени."""
     host = hostname.strip().lower()
     if host.startswith("www."):
         return host[4:]
@@ -11,6 +12,7 @@ def strip_www(hostname: str) -> str:
 
 
 def hostname_key(url: str) -> str:
+    """Возвращает нормализованный ключ домена для сравнения."""
     parts = urlsplit(url)
     hostname = parts.hostname
     if not hostname:
@@ -19,6 +21,7 @@ def hostname_key(url: str) -> str:
 
 
 def origin(url: str) -> str:
+    """Возвращает origin (scheme://host[:port])."""
     parts = urlsplit(url)
     if not parts.scheme or not parts.netloc:
         raise ValueError(f"URL is not absolute: {url!r}")
@@ -26,6 +29,7 @@ def origin(url: str) -> str:
 
 
 def normalize_url(url: str, *, include_query: bool) -> str:
+    """Нормализует URL для дедупликации."""
     parts = urlsplit(url)
     scheme = parts.scheme.lower()
     if scheme not in {"http", "https"}:
@@ -46,6 +50,7 @@ def normalize_url(url: str, *, include_query: bool) -> str:
 
 
 def is_same_domain(url: str, *, base_hostname_key: str) -> bool:
+    """Проверяет, что URL относится к тому же домену."""
     parts = urlsplit(url)
     host = parts.hostname
     if not host:
@@ -54,6 +59,7 @@ def is_same_domain(url: str, *, base_hostname_key: str) -> bool:
 
 
 def infer_phone_region(url: str) -> str:
+    """Пытается определить регион телефона по TLD домена."""
     parts = urlsplit(url)
     hostname = parts.hostname
     if not hostname:

@@ -113,7 +113,7 @@ def test_parses_contacts_across_pages(test_server: _TestServer) -> None:
         max_seconds=5.0,
         request_timeout=1.0,
         user_agent="test",
-        phone_default_region="RU",
+        phone_regions=("RU",),
     )
     result = SiteParser(settings).parse(f"{test_server.base_url}/")
 
@@ -180,6 +180,67 @@ a@b..com
         settings = ParserSettings(max_pages=1, max_depth=0, max_seconds=5.0, request_timeout=1.0, user_agent="test")
         result = SiteParser(settings).parse(f"{server.base_url}/")
         assert set(result.emails) == {"good@example.com", "good2@example.com"}
+    finally:
+        server.stop()
+
+
+def test_email_domain_allowlist_filters_domains() -> None:
+    server = _TestServer(
+        routes={
+            "/": _ResponseSpec(
+                status=200,
+                body="""
+<html><body>
+good@gmail.com
+good@mail.ru
+nope@yahoo.com
+<a href="mailto:admin@sub.mail.ru">sub</a>
+</body></html>
+""".strip(),
+            )
+        }
+    )
+    server.start()
+    try:
+        settings = ParserSettings(
+            max_pages=1,
+            max_depth=0,
+            max_seconds=5.0,
+            request_timeout=1.0,
+            user_agent="test",
+            email_domain_allowlist=("gmail.com", "mail.ru"),
+        )
+        result = SiteParser(settings).parse(f"{server.base_url}/")
+        assert set(result.emails) == {"good@gmail.com", "good@mail.ru", "admin@sub.mail.ru"}
+    finally:
+        server.stop()
+
+
+def test_joomla_cloaked_email_extracted() -> None:
+    server = _TestServer(
+        routes={
+            "/": _ResponseSpec(
+                status=200,
+                body="""
+<html><body>
+<span id="cloak123">Адрес электронной почты защищен</span>
+<script type="text/javascript">
+document.getElementById('cloak123').innerHTML = '';
+var addy123 = '&#105;nf&#111;' + '&#64;';
+addy123 = addy123 + 'k&#97;gr&#105;f&#111;n' + '&#46;' + 'r&#117;';
+var addy_text123 = '&#105;nf&#111;' + '&#64;' + 'k&#97;gr&#105;f&#111;n' + '&#46;' + 'r&#117;';
+document.getElementById('cloak123').innerHTML += '<a href=\"mailto:' + addy123 + '\">' + addy_text123 + '</a>';
+</script>
+</body></html>
+""".strip(),
+            )
+        }
+    )
+    server.start()
+    try:
+        settings = ParserSettings(max_pages=1, max_depth=0, max_seconds=5.0, request_timeout=1.0, user_agent="test")
+        result = SiteParser(settings).parse(f"{server.base_url}/")
+        assert "info@kagrifon.ru" in result.emails
     finally:
         server.stop()
 

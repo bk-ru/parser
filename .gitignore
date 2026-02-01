@@ -3,7 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-*rec.md
 *task.md
 
 # C extensions

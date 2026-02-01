@@ -1,15 +1,45 @@
 [parser]
+# Максимальное число страниц в обходе
 max_pages = 200
-max_depth = 5
+
+# Максимальная глубина обхода (0 — только стартовая страница)
+max_depth = 0
+
+# Предельная длительность обхода, сек
 max_seconds = 30.0
+
+# Параллелизм запросов (число одновременных HTTP‑запросов)
 max_concurrency = 4
+
+# Таймаут HTTP‑запроса, сек
 request_timeout = 10.0
+
+# Заголовок User‑Agent
 user_agent = "site-parser/0.1.0"
+
+# Учитывать query‑параметры при нормализации URL
 include_query = false
-# phone_default_region = "RU"
+
+# Разрешённые регионы для парсинга телефонов, например ["RU"] или ["RU", "BY"]
+# phone_regions = ["RU", "BY"]
+
+# Разрешённые домены e‑mail, например ["mail.ru", "gmail.com"]
+# email_domain_allowlist = ["mail.ru", "gmail.com"]
+
+# Фокусированный обход (приоритизация контактных страниц)
 focused_crawling = true
+
+# Максимальный размер тела ответа, байт
 max_body_bytes = 2000000
+
+# Максимум ссылок, обрабатываемых со страницы
 max_links_per_page = 200
+
+# Количество повторных попыток для HTTP‑запросов
 retry_total = 2
+
+# Коэффициент backoff для повторов
 retry_backoff_factor = 0.5
+
+# Уровень логирования: DEBUG/INFO/WARNING/ERROR
 log_level = "INFO"

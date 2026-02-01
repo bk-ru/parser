@@ -26,27 +26,39 @@ logger = logging.getLogger("site_parser")
 
 @dataclass(frozen=True)
 class ParseResult:
+    """Результат парсинга: базовый URL и найденные контакты."""
     url: str
     emails: list[str]
     phones: list[str]
 
     def as_dict(self) -> dict[str, Any]:
+        """Возвращает результат в виде словаря."""
         return {"url": self.url, "emails": self.emails, "phones": self.phones}
 
     def as_json(self, *, ensure_ascii: bool = False, indent: int | None = None) -> str:
+        """Сериализует результат в JSON-строку."""
         return json.dumps(self.as_dict(), ensure_ascii=ensure_ascii, indent=indent)
 
 
 class SiteParser:
+    """Парсер сайта одного домена."""
     def __init__(self, settings: ParserSettings, session: requests.Session | None = None) -> None:
         self._settings = settings
         self._session = session
         self._local = threading.local()
 
     def parse(self, start_url: str) -> ParseResult:
+        """Обходит сайт и возвращает найденные e‑mail и телефоны."""
         normalized_start = normalize_url(start_url, include_query=self._settings.include_query)
         base_hostname = hostname_key(normalized_start)
-        phone_region = (self._settings.phone_default_region or "").strip().upper() or infer_phone_region(normalized_start)
+        configured_regions = self._settings.phone_regions
+        if configured_regions:
+            phone_regions = tuple(r for r in configured_regions if r and r.strip().upper() != "ZZ")
+            inferred_regions = False
+        else:
+            inferred = infer_phone_region(normalized_start)
+            phone_regions = (inferred,) if inferred != "ZZ" else ()
+            inferred_regions = True
 
         deadline = time.monotonic() + self._settings.max_seconds
         emails: set[str] = set()
@@ -93,16 +105,17 @@ class SiteParser:
                     if url == normalized_start:
                         effective_start = page.final_url
                         base_hostname = hostname_key(effective_start)
-                        if not (self._settings.phone_default_region or "").strip():
-                            phone_region = infer_phone_region(effective_start)
+                        if inferred_regions:
+                            inferred = infer_phone_region(effective_start)
+                            phone_regions = (inferred,) if inferred != "ZZ" else ()
 
                     soup = _safe_soup(page.text)
                     if soup is None:
                         continue
 
                     page_text = soup.get_text(" ", strip=True)
-                    emails.update(extract_emails(page_text, soup=soup))
-                    phones.update(extract_phones(page_text, region=phone_region, soup=soup))
+                    emails.update(extract_emails(page_text, allowlist=self._settings.email_domain_allowlist, soup=soup))
+                    phones.update(extract_phones(page_text, regions=phone_regions, soup=soup))
 
                     if depth >= self._settings.max_depth:
                         continue
@@ -138,11 +151,13 @@ class SiteParser:
         )
 
     def _priority(self, url: str) -> int:
+        """Возвращает приоритет URL для фокусированного обхода."""
         if not self._settings.focused_crawling:
             return 0
         return url_priority_score(url)
 
     def _fetch(self, url: str) -> "_FetchedPage | None":
+        """Скачивает страницу и возвращает нормализованный URL и текст."""
         session = self._get_session()
         headers = {"User-Agent": self._settings.user_agent, "Accept": "text/html,application/xhtml+xml"}
         try:
@@ -167,6 +182,7 @@ class SiteParser:
             return None
 
     def _get_session(self) -> requests.Session:
+        """Возвращает потоковую requests.Session с ретраями."""
         if self._session is not None:
             return self._session
         session = getattr(self._local, "session", None)
@@ -175,16 +191,22 @@ class SiteParser:
             self._local.session = session
         return session
 
+
 @dataclass(frozen=True)
 class _FetchedPage:
+    """Внутреннее представление скачанной страницы."""
     final_url: str
     text: str
 
+
 def parse_site(start_url: str, *, settings: ParserSettings | None = None) -> dict[str, Any]:
+    """Упрощённый API: парсинг сайта одним вызовом."""
     effective_settings = settings or ParserSettings.from_env_and_file()
     return SiteParser(effective_settings).parse(start_url).as_dict()
 
+
 def _create_session(settings: ParserSettings) -> requests.Session:
+    """Создаёт requests.Session с политикой повторов."""
     session = requests.Session()
     retry = Retry(
         total=settings.retry_total,
@@ -198,21 +220,27 @@ def _create_session(settings: ParserSettings) -> requests.Session:
     session.mount("https://", adapter)
     return session
 
+
 def _safe_soup(text: str) -> BeautifulSoup | None:
+    """Парсит HTML в BeautifulSoup, возвращает None при ошибке."""
     try:
         return BeautifulSoup(text, "html.parser")
     except Exception as exc:
         logger.debug("Soup parse error: %s", exc)
-        return None
+    return None
+
 
 def _is_allowed_content_type(content_type: str) -> bool:
+    """Проверяет, подходит ли Content-Type для HTML-парсинга."""
     value = (content_type or "").lower()
     if not value:
         return True
     allowed = ("text/html", "application/xhtml+xml", "text/plain")
     return any(token in value for token in allowed)
 
+
 def _read_limited_body(response: requests.Response, max_bytes: int) -> bytes:
+    """Читает тело ответа с ограничением по размеру."""
     collected = bytearray()
     for chunk in response.iter_content(chunk_size=16_384):
         if not chunk:

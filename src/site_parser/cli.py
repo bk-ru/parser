@@ -11,6 +11,7 @@ from site_parser.settings import ParserSettings
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Точка входа CLI."""
     args = _parse_args(argv)
     settings = ParserSettings.from_env_and_file(args.config)
     if args.log_level:
@@ -31,11 +32,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _configure_logging(log_level: str) -> None:
+    """Настраивает логирование приложения."""
     level = logging.getLevelNamesMapping().get(log_level.upper(), logging.INFO)
     logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """Парсит аргументы командной строки."""
     parser = argparse.ArgumentParser(prog="site-parser")
     parser.add_argument("start_url")
     parser.add_argument("--config")

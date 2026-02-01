@@ -15,7 +15,7 @@ max_concurrency = 4
 request_timeout = 10.0
 
 # Заголовок User‑Agent
-user_agent = "site-parser/0.1.0"
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 # Учитывать query‑параметры при нормализации URL
 include_query = false

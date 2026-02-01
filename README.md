@@ -2,6 +2,19 @@
 # site-parser
 
 `site-parser` обходит страницы сайта **в пределах одного домена** и извлекает контактные данные: **адреса электронной почты** и **телефонные номера**.
+Результат возвращается в виде JSON (поле `url` — базовый URL сайта: `scheme://host`).
+
+Требуется Python 3.12+.
+
+![Скриншот 1](imgs/hero.png)
+
+Ключевые возможности:
+- Обход только одного домена, корректная обработка relative/absolute ссылок
+- Лимиты обхода: глубина/кол-во страниц/время/размер ответа/лимит ссылок со страницы
+- Фокусированный обход: приоритизация “контактных” страниц
+- Параллельная загрузка страниц (thread pool) + retries/backoff
+- E‑mail: regex → `email_validator` (включая типичный Joomla-cloak) + опциональный allowlist доменов
+- Телефоны: `phonenumbers` (+ опциональные регионы для локальных номеров без `+`)
 
 Результат работы — JSON-объект вида:
 
@@ -27,7 +40,7 @@ pip install -e .
 ### Запуск
 
 ```powershell
-site-parser https://codenrock.com/
+site-parser https://sniper-search.ru/contacts
 ```
 
 ```powershell
@@ -50,9 +63,17 @@ site-parser https://www.iana.org/contact --config parser.example.toml --pretty
 
 ## Установка
 
+Основной вариант (для разработки и CLI):
+
 ```powershell
 pip install -r requirements.txt
 pip install -e .
+```
+
+Альтернатива (если нужен только пакет/CLI, без editable‑install):
+
+```powershell
+pip install .
 ```
 
 ## Использование
@@ -63,7 +84,8 @@ pip install -e .
 
 ```powershell
 site-parser https://www.iana.org/contact
-site-parser https://xn--c1akpdiz.xn--80adxhks/
+site-parser https://sotohit.ru/
+site-parser https://xn--c1akpdiz.xn--80adxhks/yuristy-moskvy/371-advokaty-yuristy-butovo.html
 ```
 
 Полезные опции:
@@ -72,6 +94,18 @@ site-parser https://xn--c1akpdiz.xn--80adxhks/
 site-parser https://www.iana.org/contact --pretty
 site-parser https://www.iana.org/contact --log-level DEBUG
 site-parser https://www.iana.org/contact --config parser.example.toml
+```
+
+- `--pretty` — печатает JSON с отступами (удобно для чтения).
+- `--config` — путь к файлу конфигурации (TOML/JSON), пример: `parser.example.toml`.
+- `--log-level` — уровень логирования (DEBUG/INFO/WARNING/ERROR).
+
+Только текущая страница (без обхода ссылок):
+
+```powershell
+$env:PARSER_MAX_DEPTH = '0'
+$env:PARSER_MAX_PAGES = '1'
+site-parser https://www.iana.org/contact
 ```
 
 ### Python API
@@ -103,7 +137,6 @@ print(result["url"], len(result["emails"]), len(result["phones"]))
 | `PARSER_MAX_BODY_BYTES`                |           `2000000` | Максимальный размер тела ответа, байт                                  |
 | `PARSER_MAX_CONCURRENCY`               |                 `4` | Уровень параллелизма: число одновременных HTTP-запросов                |
 | `PARSER_PHONE_REGIONS`                 |       *(не задано)* | Регионы для разборa локальных телефонов (через запятую), напр. `RU,BY` |
-| `PARSER_PHONE_DEFAULT_REGION`          |       *(не задано)* | Алиас для одного региона (для совместимости), напр. `RU`               |
 | `PARSER_EMAIL_DOMAIN_ALLOWLIST`        |       *(не задано)* | Белый список доменов e-mail (через запятую), напр. `gmail.com,mail.ru` |
 | `PARSER_FOCUSED_CRAWLING`              |              `true` | Фокусированный обход: приоритизация «контактных» страниц               |
 | `PARSER_REQUEST_TIMEOUT`               |              `10.0` | Таймаут HTTP-запроса, сек.                                             |

@@ -111,10 +111,6 @@ def _read_settings_from_env(environ: dict[str, str]) -> dict[str, Any]:
             continue
         result[field_name] = caster(raw)
 
-    if "phone_regions" not in result:
-        fallback_region = environ.get("PARSER_PHONE_DEFAULT_REGION")
-        if fallback_region:
-            result["phone_regions"] = fallback_region
     return result
 
 

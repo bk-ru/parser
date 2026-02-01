@@ -137,4 +137,4 @@ pytest
 
 ## License
 
-MIT (см. `LICENSE`).
+Проект распространяется под лицензией MIT. См. файл [LICENSE](LICENSE) для подробностей.

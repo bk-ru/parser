@@ -8,14 +8,6 @@
 
 ![Скриншот 1](imgs/hero.png)
 
-Ключевые возможности:
-- Обход только одного домена, корректная обработка relative/absolute ссылок
-- Лимиты обхода: глубина/кол-во страниц/время/размер ответа/лимит ссылок со страницы
-- Фокусированный обход: приоритизация “контактных” страниц
-- Параллельная загрузка страниц (thread pool) + retries/backoff
-- E‑mail: regex → `email_validator` (включая типичный Joomla-cloak) + опциональный allowlist доменов
-- Телефоны: `phonenumbers` (+ опциональные регионы для локальных номеров без `+`)
-
 Результат работы — JSON-объект вида:
 
 ```json
@@ -30,9 +22,20 @@
 
 ### Установка (виртуальное окружение + pip)
 
+Windows (PowerShell):
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -e .
+```
+
+Linux/macOS (bash):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 ```
@@ -65,22 +68,21 @@ site-parser https://www.iana.org/contact --config parser.example.toml --pretty
 
 Основной вариант (для разработки и CLI):
 
-```powershell
-pip install -r requirements.txt
-pip install -e .
+
+```
+python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 Альтернатива (если нужен только пакет/CLI, без editable‑install):
 
-```powershell
-pip install .
+```
+python -m pip install .
 ```
 
 ## Использование
 
 ### Интерфейс командной строки
-
-Формат вывода всегда одинаковый (конкретные значения зависят от сайта):
 
 ```powershell
 site-parser https://www.iana.org/contact

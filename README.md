@@ -8,16 +8,6 @@
 
 ![Скриншот 1](imgs/hero.png)
 
-Результат работы — JSON-объект вида:
-
-```json
-{
-  "url": "https://example.com",
-  "emails": ["info@example.com"],
-  "phones": ["+14155552671"]
-}
-```
-
 ## Быстрый старт
 
 ### Установка (виртуальное окружение + pip)
@@ -43,7 +33,7 @@ pip install -e .
 ### Запуск
 
 ```powershell
-site-parser https://sniper-search.ru/contacts
+site-parser https://sotohit.ru/
 ```
 
 ```powershell

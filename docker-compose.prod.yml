@@ -1,0 +1,32 @@
+services:
+  site-parser:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: site-parser:prod
+    container_name: site-parser-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SITE_PARSER_API_HOST: "${SITE_PARSER_API_HOST:-0.0.0.0}"
+      SITE_PARSER_API_PORT: "${SITE_PARSER_API_PORT:-8000}"
+      SITE_PARSER_API_WORKERS: "${SITE_PARSER_API_WORKERS:-2}"
+      SITE_PARSER_TRUSTED_HOSTS: "${SITE_PARSER_TRUSTED_HOSTS:-localhost,127.0.0.1}"
+      SITE_PARSER_CORS_ORIGINS: "${SITE_PARSER_CORS_ORIGINS:-http://127.0.0.1:8000,http://localhost:8000}"
+      PARSER_MAX_SECONDS: "${PARSER_MAX_SECONDS:-30}"
+      PARSER_MAX_DEPTH: "${PARSER_MAX_DEPTH:-0}"
+      PARSER_MAX_PAGES: "${PARSER_MAX_PAGES:-200}"
+      PARSER_MAX_CONCURRENCY: "${PARSER_MAX_CONCURRENCY:-4}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

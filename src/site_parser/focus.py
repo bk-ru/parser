@@ -69,7 +69,7 @@ _EXTENSION_WEIGHTS: dict[str, int] = {
 
 
 def url_priority_score(url: str) -> int:
-    """Возвращает приоритет URL для фокусированного обхода (меньше — лучше)."""
+    """Возвращает приоритет URL для фокусированного обхода (меньше - лучше)."""
     parts = urlsplit(url)
     path = (parts.path or "/").lower()
     query = (parts.query or "").lower()

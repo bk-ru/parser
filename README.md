@@ -5,7 +5,28 @@
 
 Требуется Python 3.12+.
 
-![Скриншот 1](imgs/hero.png)
+## Быстрый старт
+
+Локальный запуск CLI:
+
+```bash
+python -m venv .venv
+# Linux/macOS: source .venv/bin/activate
+# Windows (PowerShell): .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -e .
+site-parser https://www.iana.org/contact --pretty
+```
+
+Продакшен-запуск (Docker Compose):
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+После запуска откройте `http://127.0.0.1:8000`.
+
+![Скриншот 1](imgs/hero2.png)
 
 ## Установка (виртуальное окружение + pip)
 
@@ -27,57 +48,17 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-## Запуск
-
-CLI:
-
-```powershell
-site-parser https://sotohit.ru/
-site-parser https://www.iana.org/contact --pretty
-site-parser https://www.iana.org/contact --config parser.example.toml --pretty
-```
-
-Пример формата CLI-вывода:
-
-```json
-{
-  "url": "https://example.com",
-  "emails": ["info@example.com", "..."],
-  "phones": ["+14155552671", "..."]
-}
-```
-
-## Веб-интерфейс (React)
+## Dev: локальный запуск (API + UI)
 
 Требуется Node.js 20+.
 
-1) Запустите API на Python:
-
-Windows (PowerShell):
-
-```powershell
-site-parser-api
-```
-
-Linux/macOS (bash):
+Терминал 1 (API):
 
 ```bash
 site-parser-api
 ```
 
-API по умолчанию поднимается на `http://127.0.0.1:8000`.
-
-2) Запустите React UI:
-
-Windows (PowerShell):
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-Linux/macOS (bash):
+Терминал 2 (React UI):
 
 ```bash
 cd frontend
@@ -85,16 +66,7 @@ npm install
 npm run dev
 ```
 
-UI по умолчанию работает на `http://127.0.0.1:5173` и обращается к API через `/api`.
-
-3) Продакшен-сборка UI:
-
-```powershell
-cd frontend
-npm run build
-```
-
-После сборки `site-parser-api` автоматически раздаёт `frontend/dist` как статический интерфейс.
+По умолчанию API доступен на `http://127.0.0.1:8000`, UI - на `http://127.0.0.1:5173`.
 
 ### Параметры парсинга в веб-интерфейсе
 
@@ -102,7 +74,7 @@ npm run build
 без изменения `parser.example.toml` и переменных окружения. Параметры отправляются в `POST /api/parse`
 в поле `overrides` (переопределения).
 
-Поддерживаемые поля переопределения:
+Поддерживаемые поля для изменения:
 
 - `max_pages`, `max_depth`, `max_seconds`, `max_concurrency`
 - `request_timeout`, `max_links_per_page`, `max_body_bytes`
@@ -132,19 +104,23 @@ npm run build
 
 ### Вариант 1: Docker Compose (рекомендуется)
 
-```powershell
-docker compose -f docker-compose.prod.yml up -d --build
+Запуск - командой из раздела `Быстрый старт`.
+
+Если используете файл переменных окружения:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
 Проверка:
 
-```powershell
+```bash
 curl http://127.0.0.1:8000/api/health
 ```
 
 Остановка:
 
-```powershell
+```bash
 docker compose -f docker-compose.prod.yml down
 ```
 
@@ -155,7 +131,7 @@ docker compose -f docker-compose.prod.yml down
 
 1) Сборка UI:
 
-```powershell
+```bash
 cd frontend
 npm ci
 npm run build
@@ -163,7 +139,7 @@ npm run build
 
 2) Запуск API как единственного процесса:
 
-```powershell
+```bash
 site-parser-api
 ```
 
@@ -173,19 +149,18 @@ site-parser-api
 - `SITE_PARSER_API_RELOAD=false`
 - `SITE_PARSER_API_WORKERS=2` (или больше, по CPU)
 
-## Использование
+## CLI и API
 
-### Интерфейс командной строки
+### CLI
 
-```powershell
+```bash
 site-parser https://www.iana.org/contact
 site-parser https://sotohit.ru/
-site-parser https://xn--c1akpdiz.xn--80adxhks/yuristy-moskvy/371-advokaty-yuristy-butovo.html
 ```
 
 Опции:
 
-```powershell
+```bash
 site-parser https://www.iana.org/contact --pretty
 site-parser https://www.iana.org/contact --log-level DEBUG
 site-parser https://www.iana.org/contact --config parser.example.toml
@@ -195,7 +170,27 @@ site-parser https://www.iana.org/contact --config parser.example.toml
 - `--config` - путь к файлу конфигурации (TOML/JSON), пример: `parser.example.toml`.
 - `--log-level` - уровень логирования (DEBUG/INFO/WARNING/ERROR).
 
+Пример формата CLI-вывода:
+
+```json
+{
+  "url": "https://example.com",
+  "emails": ["info@example.com", "..."],
+  "phones": ["+14155552671", "..."]
+}
+```
+
 Только текущая страница (без обхода ссылок):
+
+Linux/macOS (bash):
+
+```bash
+export PARSER_MAX_DEPTH=0
+export PARSER_MAX_PAGES=1
+site-parser https://www.iana.org/contact
+```
+
+Windows (PowerShell):
 
 ```powershell
 $env:PARSER_MAX_DEPTH = '0'
@@ -266,7 +261,7 @@ print(result["url"], len(result["emails"]), len(result["phones"]))
 
 ## Тесты
 
-```powershell
+```bash
 pytest
 ```
 

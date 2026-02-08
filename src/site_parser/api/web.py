@@ -13,8 +13,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from site_parser.parser import parse_site
-from site_parser.settings import ParserSettings
+from site_parser.config.settings import ParserSettings
+from site_parser.core.parser import parse_site
+from site_parser.infra.live_logs import install_live_log_handler
+from site_parser.infra.safe_logging import sanitize_for_log
 
 logger = logging.getLogger("site_parser.web")
 
@@ -181,10 +183,19 @@ def _env_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(item for item in parts if item)
 
 
+def _configure_site_parser_log_level(level_name: str | None) -> None:
+    """Configures log level for `site_parser*` loggers used by live-log UI."""
+    effective_name = (level_name or "INFO").strip().upper()
+    level = logging.getLevelNamesMapping().get(effective_name, logging.INFO)
+    logging.getLogger("site_parser").setLevel(level)
+
+
 def create_app() -> FastAPI:
     """Создаёт FastAPI-приложение для UI/API режима."""
 
     app = FastAPI(title="site-parser API", version="0.1.0")
+    live_log_buffer = install_live_log_handler()
+    _configure_site_parser_log_level(os.environ.get("PARSER_LOG_LEVEL", "INFO"))
     trusted_hosts = _env_list("SITE_PARSER_TRUSTED_HOSTS", ("127.0.0.1", "localhost"))
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(trusted_hosts))
 
@@ -209,6 +220,21 @@ def create_app() -> FastAPI:
 
         return {"status": "ok"}
 
+    @app.get("/api/logs")
+    def read_logs(after: int = 0, limit: int = 200) -> dict[str, Any]:
+        """Возвращает логи приложения для UI."""
+
+        items = live_log_buffer.list(after=max(0, after), limit=limit)
+        next_after = items[-1]["id"] if items else max(0, after)
+        return {"items": items, "next_after": next_after}
+
+    @app.post("/api/logs/clear")
+    def clear_logs() -> dict[str, str]:
+        """Очищает буфер live-логов."""
+
+        live_log_buffer.clear()
+        return {"status": "ok"}
+
     @app.post("/api/parse")
     def parse_endpoint(payload: ParseRequest) -> dict[str, Any]:
         """Запускает парсинг сайта и возвращает контакты."""
@@ -217,9 +243,22 @@ def create_app() -> FastAPI:
         if not start_url:
             raise HTTPException(status_code=422, detail="url is required")
         try:
+            live_log_buffer.clear()
+            logger.info(
+                "Запрос парсинга: url=%s, overrides=%s",
+                start_url,
+                sanitize_for_log(payload.overrides or {}),
+            )
             settings = ParserSettings.from_env_and_file(payload.config)
             settings = _apply_overrides(settings, payload.overrides)
-            return parse_site(start_url, settings=settings)
+            _configure_site_parser_log_level(settings.log_level)
+            logger.debug("Эффективные настройки API: %s", sanitize_for_log(settings))
+            result = parse_site(start_url, settings=settings)
+            return {
+                "url": result.get("url"),
+                "emails": result.get("emails", []),
+                "phones": result.get("phones", []),
+            }
         except FileNotFoundError as exc:
             raise HTTPException(status_code=400, detail=f"Config file not found: {exc}") from exc
         except ValueError as exc:
@@ -228,7 +267,7 @@ def create_app() -> FastAPI:
             logger.exception("Unexpected parser error")
             raise HTTPException(status_code=500, detail="Internal server error") from exc
 
-    frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    frontend_dist = Path(__file__).resolve().parents[3] / "frontend" / "dist"
     if frontend_dist.exists():
         app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
@@ -245,8 +284,16 @@ def main() -> None:
     port = int(os.environ.get("SITE_PARSER_API_PORT", "8000"))
     reload_mode = os.environ.get("SITE_PARSER_API_RELOAD", "").strip().lower() in {"1", "true", "yes", "on"}
     workers = int(os.environ.get("SITE_PARSER_API_WORKERS", "1"))
+    logger.info(
+        "Запуск API: host=%s port=%s workers=%s reload=%s",
+        host,
+        port,
+        workers,
+        reload_mode,
+    )
+    install_live_log_handler()
     uvicorn.run(
-        "site_parser.web:app",
+        "site_parser.api.web:app",
         host=host,
         port=port,
         reload=reload_mode,

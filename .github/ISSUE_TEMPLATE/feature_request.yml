@@ -1,0 +1,26 @@
+name: "💡 Feature request"
+description: "Предложить улучшение для site-parser"
+title: "[IDEA]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема
+      description: "Какой сценарий сейчас неудобен или не поддержан"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предложение
+      description: "Какое изменение вы предлагаете"
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Примеры/референсы
+      description: "Если есть, добавьте примеры API, CLI или UI"

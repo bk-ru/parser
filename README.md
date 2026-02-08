@@ -26,7 +26,12 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 После запуска откройте `http://127.0.0.1:8000`.
 
-![Скриншот 1](imgs/hero2.png)
+![Скриншот 1](imgs/hero.png)
+
+## Дополнительная документация
+
+- Архитектура и запуск в эксплуатации: `docs/OPERATIONS.md`
+- История изменений: `docs/CHANGELOG.md`
 
 ## Установка (виртуальное окружение + pip)
 
@@ -67,12 +72,17 @@ npm run dev
 ```
 
 По умолчанию API доступен на `http://127.0.0.1:8000`, UI - на `http://127.0.0.1:5173`.
+Внизу интерфейса доступно окно live-логов, где в реальном времени видно ход парсинга и HTTP-запросы.
+
+![Скриншот 1](imgs/hero2.png)
 
 ### Параметры парсинга в веб-интерфейсе
 
-В форме есть секция `Переопределение параметров парсинга`, где можно задать параметры времени выполнения
+Есть кнопка  `настройки парсера`, где можно задать параметры времени выполнения
 без изменения `parser.example.toml` и переменных окружения. Параметры отправляются в `POST /api/parse`
 в поле `overrides` (переопределения).
+
+![Скриншот 1](imgs/hero3.png)
 
 Поддерживаемые поля для изменения:
 
@@ -98,56 +108,20 @@ npm run dev
 }
 ```
 
-## Продакшен-развёртывание
+## Продакшен
 
-Для продакшена используйте собранный UI + один API-сервис (без `npm run dev`).
+Для продакшена используйте один API-сервис `site-parser-api` и собранный UI.
 
-### Вариант 1: Docker Compose (рекомендуется)
-
-Запуск - командой из раздела `Быстрый старт`.
-
-Если используете файл переменных окружения:
+Базовый сценарий через Docker Compose:
 
 ```bash
+# создайте .env.production на основе .env.production.example
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
-```
-
-Проверка:
-
-```bash
 curl http://127.0.0.1:8000/api/health
 ```
 
-Остановка:
-
-```bash
-docker compose -f docker-compose.prod.yml down
-```
-
-Если нужно изменить параметры, скопируйте `.env.production.example` в `.env.production`
-и передайте переменные в compose через `--env-file`.
-
-### Вариант 2: без Docker
-
-1) Сборка UI:
-
-```bash
-cd frontend
-npm ci
-npm run build
-```
-
-2) Запуск API как единственного процесса:
-
-```bash
-site-parser-api
-```
-
-Для прод-режима выставьте:
-
-- `SITE_PARSER_API_HOST=0.0.0.0`
-- `SITE_PARSER_API_RELOAD=false`
-- `SITE_PARSER_API_WORKERS=2` (или больше, по CPU)
+Детальный runbook (переменные API, запуск без Docker, диагностика):
+`docs/OPERATIONS.md`.
 
 ## CLI и API
 
@@ -230,21 +204,15 @@ print(result["url"], len(result["emails"]), len(result["phones"]))
 | `PARSER_REQUEST_TIMEOUT`               |              `10.0` | Таймаут HTTP-запроса, сек.                                             |
 | `PARSER_RETRY_TOTAL`                   |                 `2` | Количество повторных попыток HTTP-запроса                              |
 | `PARSER_RETRY_BACKOFF_FACTOR`          |               `0.5` | Коэффициент задержки между повторами (backoff)                         |
-| `PARSER_USER_AGENT`                    | `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36` | Значение заголовка `User-Agent`                                        |
+| `PARSER_USER_AGENT`                    | `site-parser/0.1.0` | Значение заголовка `User-Agent`                                        |
 | `PARSER_INCLUDE_QUERY`                 |             `false` | `true`: `/catalog?page=1` и `/catalog?page=2` - разные URL; `false` - один URL |
 | `PARSER_LOG_LEVEL`                     |              `INFO` | Уровень логирования                                                    |
 | `PARSER_CONFIG_FILE` / `PARSER_CONFIG` |       *(не задано)* | Путь к файлу конфигурации (если не используете `--config`)             |
 
 ### Переменные API-сервера
 
-| Переменная                | По умолчанию | Описание                                 |
-| ------------------------- | -----------: | ---------------------------------------- |
-| `SITE_PARSER_API_HOST`    | `127.0.0.1`  | Хост для `site-parser-api`               |
-| `SITE_PARSER_API_PORT`    |      `8000`  | Порт для `site-parser-api`               |
-| `SITE_PARSER_API_WORKERS` |         `1`  | Количество worker-процессов Uvicorn      |
-| `SITE_PARSER_API_RELOAD`  |      `false` | Режим автоперезапуска (`1/true/yes/on`) |
-| `SITE_PARSER_TRUSTED_HOSTS` | `127.0.0.1,localhost` | Разрешённые значения `Host` заголовка |
-| `SITE_PARSER_CORS_ORIGINS` | `http://127.0.0.1:5173,http://localhost:5173` | Разрешённые CORS origin через запятую |
+Описание переменных API-сервера и эксплуатационных параметров вынесено в
+`docs/OPERATIONS.md`.
 
 ## Как это работает
 

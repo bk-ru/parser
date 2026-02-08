@@ -1,0 +1,78 @@
+name: "🐛 Bug report"
+description: "Сообщить об ошибке в работе site-parser"
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Укажите воспроизводимый сценарий и приложите логи.
+        Перед отправкой замаскируйте чувствительные данные.
+
+  - type: input
+    id: os
+    attributes:
+      label: ОС
+      placeholder: "Windows 11 / Ubuntu 24.04 / macOS 15"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: run_mode
+    attributes:
+      label: Режим запуска
+      options:
+        - CLI
+        - API
+        - API + React UI
+        - Docker Compose
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Версия
+      placeholder: "Например: v0.1.0 или commit hash"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Команда запуска
+      description: "Приведите точную команду или JSON запроса"
+      render: bash
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактическое поведение
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи/traceback
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Конфигурация (без секретов)
+      description: |
+        Укажите используемые параметры из `parser.example.toml` или env.
+        Не публикуйте токены, cookie, прокси-логины/пароли.
+      render: toml

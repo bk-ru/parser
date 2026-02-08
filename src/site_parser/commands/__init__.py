@@ -1,3 +1,3 @@
 from site_parser.commands.cli import main
 
-raise SystemExit(main())
+__all__ = ["main"]

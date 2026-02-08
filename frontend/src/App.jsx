@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Select from "react-select";
 
 const EXAMPLES = [
   "https://www.iana.org/contact",
@@ -7,6 +8,127 @@ const EXAMPLES = [
 ];
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+const PHONE_REGION_OPTIONS = [
+  { code: "RU", name: "Россия" },
+  { code: "BY", name: "Беларусь" },
+  { code: "KZ", name: "Казахстан" },
+  { code: "UA", name: "Украина" },
+  { code: "KG", name: "Кыргызстан" },
+  { code: "UZ", name: "Узбекистан" },
+  { code: "AM", name: "Армения" },
+  { code: "AZ", name: "Азербайджан" },
+  { code: "GE", name: "Грузия" },
+  { code: "MD", name: "Молдова" },
+  { code: "PL", name: "Польша" },
+  { code: "DE", name: "Германия" },
+  { code: "FR", name: "Франция" },
+  { code: "IT", name: "Италия" },
+  { code: "ES", name: "Испания" },
+  { code: "GB", name: "Великобритания" },
+  { code: "US", name: "США" },
+  { code: "CA", name: "Канада" },
+  { code: "AU", name: "Австралия" },
+  { code: "JP", name: "Япония" },
+  { code: "CN", name: "Китай" },
+  { code: "IN", name: "Индия" }
+];
+
+const PHONE_REGION_SELECT_OPTIONS = PHONE_REGION_OPTIONS.map((option) => ({
+  value: option.code,
+  label: `${option.name} (${option.code})`
+}));
+const ALL_PHONE_REGION_CODES = PHONE_REGION_SELECT_OPTIONS.map((option) => option.value);
+
+const PHONE_REGION_SELECT_STYLES = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: "46px",
+    alignItems: "flex-start",
+    borderRadius: "14px",
+    borderColor: state.isFocused ? "rgba(0, 113, 227, 0.42)" : "rgba(0, 0, 0, 0.08)",
+    boxShadow: state.isFocused ? "0 0 0 4px rgba(0, 113, 227, 0.12)" : "none",
+    "&:hover": {
+      borderColor: state.isFocused ? "rgba(0, 113, 227, 0.42)" : "rgba(0, 0, 0, 0.14)"
+    }
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: "6px 10px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "4px",
+    maxHeight: "88px",
+    overflowY: "auto",
+    overflowX: "hidden"
+  }),
+  multiValue: (base) => ({
+    ...base,
+    borderRadius: "999px",
+    backgroundColor: "rgba(0, 113, 227, 0.12)",
+    margin: 0
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: "#0053a8",
+    fontSize: "12px",
+    fontWeight: 600,
+    padding: "2px 6px"
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: "#0053a8",
+    borderRadius: "999px",
+    padding: "2px 4px",
+    ":hover": {
+      backgroundColor: "rgba(0, 113, 227, 0.24)",
+      color: "#003e7d"
+    }
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: "14px",
+    border: "1px solid rgba(0, 0, 0, 0.08)",
+    boxShadow: "0 16px 32px rgba(0, 0, 0, 0.16)",
+    overflow: "hidden"
+  }),
+  option: (base, state) => ({
+    ...base,
+    fontSize: "14px",
+    backgroundColor: state.isFocused ? "rgba(0, 113, 227, 0.08)" : state.isSelected ? "rgba(0, 113, 227, 0.14)" : "#fff",
+    color: "#1d1d1f",
+    ":active": {
+      backgroundColor: "rgba(0, 113, 227, 0.18)"
+    }
+  })
+};
+
+function formatPhoneRegionOption(option, meta) {
+  if (meta.context === "value") {
+    return option.value;
+  }
+  return option.label;
+}
+
+function SettingHeader({ label, description }) {
+  return (
+    <span className="field-label-row">
+      <span>{label}</span>
+      <span className="help-wrap">
+        <span className="help-icon" aria-hidden="true">
+          ?
+        </span>
+        <span className="help-tooltip" role="tooltip">
+          {description}
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function SettingDefault({ value }) {
+  return <span className="field-default">По умолчанию: {value}</span>;
+}
 
 const DEFAULT_ADVANCED = {
   maxDepth: "",
@@ -17,7 +139,7 @@ const DEFAULT_ADVANCED = {
   maxLinksPerPage: "",
   maxBodyBytes: "",
   retryTotal: "",
-  phoneRegions: "",
+  phoneRegions: [],
   emailDomainAllowlist: "",
   userAgent: "",
   focusedCrawling: "",
@@ -65,35 +187,41 @@ function parseNumber(rawValue, label, mode) {
   return parsed;
 }
 
+function preventNumberInputWheel(event) {
+  event.preventDefault();
+  event.currentTarget.blur();
+}
+
 function buildOverrides(values) {
   const overrides = {};
 
-  const maxDepth = parseNumber(values.maxDepth, "max_depth", "int");
+  const maxDepth = parseNumber(values.maxDepth, "Глубина обхода", "int");
   if (maxDepth !== null) overrides.max_depth = maxDepth;
 
-  const maxPages = parseNumber(values.maxPages, "max_pages", "int");
+  const maxPages = parseNumber(values.maxPages, "Лимит страниц", "int");
   if (maxPages !== null) overrides.max_pages = maxPages;
 
-  const maxSeconds = parseNumber(values.maxSeconds, "max_seconds", "float");
+  const maxSeconds = parseNumber(values.maxSeconds, "Лимит времени", "float");
   if (maxSeconds !== null) overrides.max_seconds = maxSeconds;
 
-  const maxConcurrency = parseNumber(values.maxConcurrency, "max_concurrency", "int");
+  const maxConcurrency = parseNumber(values.maxConcurrency, "Параллельные запросы", "int");
   if (maxConcurrency !== null) overrides.max_concurrency = maxConcurrency;
 
-  const requestTimeout = parseNumber(values.requestTimeout, "request_timeout", "float");
+  const requestTimeout = parseNumber(values.requestTimeout, "Таймаут запроса", "float");
   if (requestTimeout !== null) overrides.request_timeout = requestTimeout;
 
-  const maxLinksPerPage = parseNumber(values.maxLinksPerPage, "max_links_per_page", "int");
+  const maxLinksPerPage = parseNumber(values.maxLinksPerPage, "Ссылок со страницы", "int");
   if (maxLinksPerPage !== null) overrides.max_links_per_page = maxLinksPerPage;
 
-  const maxBodyBytes = parseNumber(values.maxBodyBytes, "max_body_bytes", "int");
+  const maxBodyBytes = parseNumber(values.maxBodyBytes, "Размер ответа", "int");
   if (maxBodyBytes !== null) overrides.max_body_bytes = maxBodyBytes;
 
-  const retryTotal = parseNumber(values.retryTotal, "retry_total", "int");
+  const retryTotal = parseNumber(values.retryTotal, "Повторные попытки", "int");
   if (retryTotal !== null) overrides.retry_total = retryTotal;
 
-  const phoneRegions = values.phoneRegions.trim();
-  if (phoneRegions) overrides.phone_regions = phoneRegions;
+  if (Array.isArray(values.phoneRegions) && values.phoneRegions.length > 0) {
+    overrides.phone_regions = values.phoneRegions;
+  }
 
   const emailDomainAllowlist = values.emailDomainAllowlist.trim();
   if (emailDomainAllowlist) overrides.email_domain_allowlist = emailDomainAllowlist;
@@ -110,15 +238,23 @@ function buildOverrides(values) {
   return Object.keys(overrides).length > 0 ? overrides : null;
 }
 
+function formatLogLine(item) {
+  return `[${item.timestamp}] ${item.level} ${item.logger}: ${item.message}`;
+}
+
 export default function App() {
   const [url, setUrl] = useState(EXAMPLES[0]);
   const [configPath, setConfigPath] = useState("parser.example.toml");
   const [advanced, setAdvanced] = useState(DEFAULT_ADVANCED);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [result, setResult] = useState(null);
   const [rawJson, setRawJson] = useState("");
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
   const [elapsedMs, setElapsedMs] = useState(null);
+  const logsRef = useRef(null);
+  const lastLogIdRef = useRef(0);
 
   const summary = useMemo(() => {
     if (!result) {
@@ -130,12 +266,65 @@ export default function App() {
     };
   }, [result]);
 
+  const selectedPhoneRegionOptions = useMemo(() => {
+    if (!Array.isArray(advanced.phoneRegions) || advanced.phoneRegions.length === 0) {
+      return [];
+    }
+    const selected = new Set(advanced.phoneRegions);
+    return PHONE_REGION_SELECT_OPTIONS.filter((option) => selected.has(option.value));
+  }, [advanced.phoneRegions]);
+  const hasPhoneRegionsSelected = advanced.phoneRegions.length > 0;
+  const allPhoneRegionsSelected = advanced.phoneRegions.length === ALL_PHONE_REGION_CODES.length;
+
+  useEffect(() => {
+    const pollLogs = async () => {
+      try {
+        const response = await fetch(buildApiUrl(`/api/logs?after=${lastLogIdRef.current}&limit=300`));
+        if (!response.ok) {
+          return;
+        }
+        const payload = await readJsonSafe(response);
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        if (!items.length) {
+          return;
+        }
+        lastLogIdRef.current = items[items.length - 1].id;
+        setLogs((previous) => [...previous, ...items].slice(-1000));
+      } catch {
+        // Игнорируем временные сетевые ошибки лог-пула
+      }
+    };
+
+    const timerId = setInterval(pollLogs, 700);
+    pollLogs();
+    return () => clearInterval(timerId);
+  }, []);
+
+  useEffect(() => {
+    if (logsRef.current) {
+      logsRef.current.scrollTop = logsRef.current.scrollHeight;
+    }
+  }, [logs]);
+
   function updateAdvanced(key, value) {
     setAdvanced((previous) => ({ ...previous, [key]: value }));
   }
 
   function resetAdvanced() {
     setAdvanced(DEFAULT_ADVANCED);
+  }
+
+  function handlePhoneRegionsChange(selectedOptions) {
+    const selected = Array.isArray(selectedOptions) ? selectedOptions.map((option) => option.value) : [];
+    updateAdvanced("phoneRegions", selected);
+  }
+
+  function selectAllPhoneRegions() {
+    updateAdvanced("phoneRegions", ALL_PHONE_REGION_CODES);
+  }
+
+  function clearPhoneRegions() {
+    updateAdvanced("phoneRegions", []);
   }
 
   async function handleSubmit(event) {
@@ -146,11 +335,14 @@ export default function App() {
       return;
     }
 
+    setLogs([]);
+    lastLogIdRef.current = 0;
     setLoading(true);
     setErrorText("");
     const startedAt = performance.now();
 
     try {
+      await fetch(buildApiUrl("/api/logs/clear"), { method: "POST" }).catch(() => null);
       const overrides = buildOverrides(advanced);
       const response = await fetch(buildApiUrl("/api/parse"), {
         method: "POST",
@@ -230,154 +422,6 @@ export default function App() {
                 placeholder="parser.example.toml"
               />
             </label>
-            <details className="advanced-panel">
-              <summary>Переопределение параметров парсинга</summary>
-              <p className="advanced-note">
-                Меняют поведение только для текущего запуска из UI и не перезаписывают файл конфигурации.
-              </p>
-              <div className="advanced-grid">
-                <label>
-                  max_depth
-                  <input
-                    type="number"
-                    value={advanced.maxDepth}
-                    onChange={(event) => updateAdvanced("maxDepth", event.target.value)}
-                    placeholder="0..50"
-                  />
-                  <span className="field-hint">0 - только текущая страница; больше - глубже обход и дольше выполнение.</span>
-                </label>
-                <label>
-                  max_pages
-                  <input
-                    type="number"
-                    value={advanced.maxPages}
-                    onChange={(event) => updateAdvanced("maxPages", event.target.value)}
-                    placeholder="1..5000"
-                  />
-                  <span className="field-hint">Лимит страниц за запуск: больше полнота, но выше время и нагрузка.</span>
-                </label>
-                <label>
-                  max_seconds
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={advanced.maxSeconds}
-                    onChange={(event) => updateAdvanced("maxSeconds", event.target.value)}
-                    placeholder="1..3600"
-                  />
-                  <span className="field-hint">Общий лимит времени. При достижении возвращается частичный результат.</span>
-                </label>
-                <label>
-                  max_concurrency
-                  <input
-                    type="number"
-                    value={advanced.maxConcurrency}
-                    onChange={(event) => updateAdvanced("maxConcurrency", event.target.value)}
-                    placeholder="1..64"
-                  />
-                  <span className="field-hint">Число одновременных запросов: выше быстрее, но больше риск 429.</span>
-                </label>
-                <label>
-                  request_timeout
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={advanced.requestTimeout}
-                    onChange={(event) => updateAdvanced("requestTimeout", event.target.value)}
-                    placeholder="0.5..120"
-                  />
-                  <span className="field-hint">Таймаут одного запроса: меньше быстрее отбой, больше выше шанс дождаться.</span>
-                </label>
-                <label>
-                  max_links_per_page
-                  <input
-                    type="number"
-                    value={advanced.maxLinksPerPage}
-                    onChange={(event) => updateAdvanced("maxLinksPerPage", event.target.value)}
-                    placeholder="1..5000"
-                  />
-                  <span className="field-hint">Сколько ссылок брать с одной страницы в очередь обхода.</span>
-                </label>
-                <label>
-                  max_body_bytes
-                  <input
-                    type="number"
-                    value={advanced.maxBodyBytes}
-                    onChange={(event) => updateAdvanced("maxBodyBytes", event.target.value)}
-                    placeholder="1024..50000000"
-                  />
-                  <span className="field-hint">Ограничение размера ответа страницы для защиты памяти и скорости.</span>
-                </label>
-                <label>
-                  retry_total
-                  <input
-                    type="number"
-                    value={advanced.retryTotal}
-                    onChange={(event) => updateAdvanced("retryTotal", event.target.value)}
-                    placeholder="0..10"
-                  />
-                  <span className="field-hint">Повторы при временных ошибках сети/сервера.</span>
-                </label>
-                <label>
-                  phone_regions
-                  <input
-                    type="text"
-                    value={advanced.phoneRegions}
-                    onChange={(event) => updateAdvanced("phoneRegions", event.target.value)}
-                    placeholder="RU,BY"
-                  />
-                  <span className="field-hint">Регионы для локальных телефонов без “+”, например RU,BY.</span>
-                </label>
-                <label>
-                  email_domain_allowlist
-                  <input
-                    type="text"
-                    value={advanced.emailDomainAllowlist}
-                    onChange={(event) => updateAdvanced("emailDomainAllowlist", event.target.value)}
-                    placeholder="gmail.com,mail.ru"
-                  />
-                  <span className="field-hint">Оставляет только e-mail из этих доменов и поддоменов.</span>
-                </label>
-                <label>
-                  user_agent
-                  <input
-                    type="text"
-                    value={advanced.userAgent}
-                    onChange={(event) => updateAdvanced("userAgent", event.target.value)}
-                    placeholder="Mozilla/5.0 ..."
-                  />
-                  <span className="field-hint">Заголовок User-Agent в HTTP-запросах парсера.</span>
-                </label>
-                <label>
-                  focused_crawling
-                  <select
-                    value={advanced.focusedCrawling}
-                    onChange={(event) => updateAdvanced("focusedCrawling", event.target.value)}
-                  >
-                    <option value="">по умолчанию</option>
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
-                  <span className="field-hint">true - в приоритете контактные страницы; false - обычный обход.</span>
-                </label>
-                <label>
-                  include_query
-                  <select value={advanced.includeQuery} onChange={(event) => updateAdvanced("includeQuery", event.target.value)}>
-                    <option value="">по умолчанию</option>
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
-                  <span className="field-hint">
-                    true - `/catalog?page=1` и `/catalog?page=2` считаются разными страницами; false - одной.
-                  </span>
-                </label>
-              </div>
-              <div className="advanced-actions">
-                <button type="button" className="secondary-button" onClick={resetAdvanced}>
-                  Сбросить переопределения
-                </button>
-              </div>
-            </details>
             <div className="examples">
               {EXAMPLES.map((item) => (
                 <button key={item} type="button" className="ghost-button" onClick={() => setUrl(item)}>
@@ -392,6 +436,245 @@ export default function App() {
               <button type="button" className="secondary-button" onClick={copyResult} disabled={!rawJson}>
                 Копировать JSON
               </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowAdvanced((value) => !value)}
+                aria-expanded={showAdvanced}
+                aria-controls="parser-settings-panel"
+              >
+                {showAdvanced ? "Скрыть настройки" : "Настройки парсера"}
+              </button>
+            </div>
+            <div
+              id="parser-settings-panel"
+              className={`advanced-panel-wrap${showAdvanced ? " is-open" : ""}`}
+              aria-hidden={!showAdvanced}
+            >
+              <div className="advanced-panel">
+                <p className="advanced-title">Настройки парсера</p>
+                <p className="advanced-note">
+                  Эти параметры действуют только для текущего запуска из веб-интерфейса.
+                </p>
+                <div className="advanced-grid">
+                  <label>
+                    <SettingHeader
+                      label="Глубина обхода"
+                      description="Определяет, насколько глубоко парсер переходит по ссылкам: 0 - только стартовая страница, большее значение - больше найденных данных, но дольше выполнение."
+                    />
+                    <input
+                      type="number"
+                      value={advanced.maxDepth}
+                      onChange={(event) => updateAdvanced("maxDepth", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="0..50"
+                    />
+                    <SettingDefault value="5" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Лимит страниц"
+                      description="Ограничивает общее число страниц за запуск. Увеличение повышает полноту результатов, но растит время и нагрузку."
+                    />
+                    <input
+                      type="number"
+                      value={advanced.maxPages}
+                      onChange={(event) => updateAdvanced("maxPages", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="1..5000"
+                    />
+                    <SettingDefault value="200" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Лимит времени, сек"
+                      description="Жёсткий тайм-лимит всего запуска. Когда время истекает, парсер останавливается и возвращает уже собранный результат."
+                    />
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={advanced.maxSeconds}
+                      onChange={(event) => updateAdvanced("maxSeconds", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="1..3600"
+                    />
+                    <SettingDefault value="30.0" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Параллельные запросы"
+                      description="Сколько HTTP-запросов выполняется одновременно. Больше значение ускоряет обход, но повышает риск блокировок и ответов 429."
+                    />
+                    <input
+                      type="number"
+                      value={advanced.maxConcurrency}
+                      onChange={(event) => updateAdvanced("maxConcurrency", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="1..64"
+                    />
+                    <SettingDefault value="4" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Таймаут запроса, сек"
+                      description="Максимальное ожидание одного HTTP-запроса. Меньше значение быстрее отбрасывает медленные сайты, больше повышает шанс дождаться ответа."
+                    />
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={advanced.requestTimeout}
+                      onChange={(event) => updateAdvanced("requestTimeout", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="0.5..120"
+                    />
+                    <SettingDefault value="10.0" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Ссылок со страницы"
+                      description="Ограничивает, сколько ссылок парсер возьмёт с каждой страницы в очередь обхода. Меньше - быстрее и стабильнее, больше - выше полнота."
+                    />
+                    <input
+                      type="number"
+                      value={advanced.maxLinksPerPage}
+                      onChange={(event) => updateAdvanced("maxLinksPerPage", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="1..5000"
+                    />
+                    <SettingDefault value="200" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Размер ответа, байт"
+                      description="Лимит размера загружаемого HTML. Защищает от слишком тяжёлых страниц и снижает расход памяти."
+                    />
+                    <input
+                      type="number"
+                      value={advanced.maxBodyBytes}
+                      onChange={(event) => updateAdvanced("maxBodyBytes", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="1024..50000000"
+                    />
+                    <SettingDefault value="2000000" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Повторные попытки"
+                      description="Сколько раз повторять запрос при временных сетевых ошибках и ошибках сервера. Большее значение повышает устойчивость, но увеличивает время."
+                    />
+                    <input
+                      type="number"
+                      value={advanced.retryTotal}
+                      onChange={(event) => updateAdvanced("retryTotal", event.target.value)}
+                      onWheel={preventNumberInputWheel}
+                      placeholder="0..10"
+                    />
+                    <SettingDefault value="2" />
+                  </label>
+                  <div className="phone-region-field setting-field">
+                    <div className="phone-region-header">
+                      <SettingHeader
+                        label="Регионы телефонов"
+                        description="Нужны для распознавания локальных номеров без '+' (например, 495...). Если не указано, используется автоопределение по стартовому URL."
+                      />
+                      <div className="region-select-actions">
+                        <button
+                          type="button"
+                          className="region-action-button"
+                          onClick={selectAllPhoneRegions}
+                          disabled={allPhoneRegionsSelected}
+                        >
+                          Выбрать все
+                        </button>
+                        <button
+                          type="button"
+                          className="region-action-button"
+                          onClick={clearPhoneRegions}
+                          disabled={!hasPhoneRegionsSelected}
+                        >
+                          Очистить
+                        </button>
+                      </div>
+                    </div>
+                    <Select
+                      inputId="phone-regions"
+                      className="phone-region-select"
+                      classNamePrefix="region-select"
+                      isMulti
+                      isClearable
+                      isSearchable
+                      closeMenuOnSelect={false}
+                      hideSelectedOptions={false}
+                      options={PHONE_REGION_SELECT_OPTIONS}
+                      value={selectedPhoneRegionOptions}
+                      onChange={handlePhoneRegionsChange}
+                      placeholder="Выберите один или несколько регионов"
+                      noOptionsMessage={() => "Ничего не найдено"}
+                      formatOptionLabel={formatPhoneRegionOption}
+                      styles={PHONE_REGION_SELECT_STYLES}
+                    />
+                    <SettingDefault value="не задано (автоопределение по URL)" />
+                  </div>
+                  <label>
+                    <SettingHeader
+                      label="Разрешённые домены e-mail"
+                      description="Фильтр по доменам e-mail. Если заполнить, в результате останутся только адреса из указанных доменов и поддоменов."
+                    />
+                    <input
+                      type="text"
+                      value={advanced.emailDomainAllowlist}
+                      onChange={(event) => updateAdvanced("emailDomainAllowlist", event.target.value)}
+                      placeholder="gmail.com,mail.ru"
+                    />
+                    <SettingDefault value="не задано (без фильтра)" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="User-Agent"
+                      description="HTTP-заголовок User-Agent для запросов. Полезно менять, если сайт блокирует стандартные клиенты."
+                    />
+                    <input
+                      type="text"
+                      value={advanced.userAgent}
+                      onChange={(event) => updateAdvanced("userAgent", event.target.value)}
+                      placeholder="Mozilla/5.0 ..."
+                    />
+                    <SettingDefault value="site-parser/0.1.0" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Фокусированный обход"
+                      description="При включении парсер в первую очередь обходит страницы, похожие на контакты/поддержку. Обычно это ускоряет поиск телефонов и e-mail."
+                    />
+                    <select
+                      value={advanced.focusedCrawling}
+                      onChange={(event) => updateAdvanced("focusedCrawling", event.target.value)}
+                    >
+                      <option value="">по умолчанию</option>
+                      <option value="true">включить</option>
+                      <option value="false">выключить</option>
+                    </select>
+                    <SettingDefault value="включено" />
+                  </label>
+                  <label>
+                    <SettingHeader
+                      label="Учитывать query-параметры"
+                      description="Если включено, URL с разными query считаются разными страницами (/page?a=1 и /page?a=2). Если выключено, такие URL объединяются."
+                    />
+                    <select value={advanced.includeQuery} onChange={(event) => updateAdvanced("includeQuery", event.target.value)}>
+                      <option value="">по умолчанию</option>
+                      <option value="true">включить</option>
+                      <option value="false">выключить</option>
+                    </select>
+                    <SettingDefault value="выключено" />
+                  </label>
+                </div>
+                <div className="advanced-actions">
+                  <button type="button" className="secondary-button" onClick={resetAdvanced}>
+                    Сбросить настройки
+                  </button>
+                </div>
+              </div>
             </div>
           </form>
           {errorText ? <div className="error-box">{errorText}</div> : null}
@@ -436,6 +719,13 @@ export default function App() {
             <h2>JSON</h2>
             <pre>{rawJson || "Результат появится после запуска парсинга."}</pre>
           </article>
+        </section>
+
+        <section className="result-card logs-card">
+          <h2>Логи</h2>
+          <pre className="logs-console" ref={logsRef}>
+            {logs.length ? logs.map(formatLogLine).join("\n") : "Логи появятся после запуска парсинга."}
+          </pre>
         </section>
       </main>
     </div>

@@ -6,8 +6,11 @@ import logging
 import sys
 from dataclasses import replace
 
-from site_parser.parser import parse_site
-from site_parser.settings import ParserSettings
+from site_parser.config.settings import ParserSettings
+from site_parser.core.parser import parse_site
+from site_parser.infra.safe_logging import sanitize_for_log
+
+logger = logging.getLogger("site_parser.cli")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,6 +21,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = replace(settings, log_level=args.log_level)
 
     _configure_logging(settings.log_level)
+    logger.debug("Эффективные настройки CLI: %s", sanitize_for_log(settings))
 
     try:
         result = parse_site(args.start_url, settings=settings)

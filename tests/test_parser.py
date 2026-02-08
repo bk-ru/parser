@@ -8,8 +8,8 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from site_parser.parser import SiteParser
-from site_parser.settings import ParserSettings
+from site_parser.config.settings import ParserSettings
+from site_parser.core.parser import SiteParser
 
 
 @dataclass(frozen=True)
@@ -113,7 +113,7 @@ def test_parses_contacts_across_pages(test_server: _TestServer) -> None:
         max_seconds=5.0,
         request_timeout=1.0,
         user_agent="test",
-        phone_regions=("RU",),
+        phone_regions=("RU", "US"),
     )
     result = SiteParser(settings).parse(f"{test_server.base_url}/")
 
@@ -278,6 +278,38 @@ IDD: 00 7 953 640-53-68
         server.stop()
 
 
+def test_phone_regions_filter_international_numbers() -> None:
+    server = _TestServer(
+        routes={
+            "/": _ResponseSpec(
+                status=200,
+                body="""
+<html><body>
+RU: +7 (800) 555-35-35
+US: +1 (415) 555-2671
+<a href="tel:+7 (800) 555-35-35">ru</a>
+<a href="tel:+1 (415) 555-2671">us</a>
+</body></html>
+""".strip(),
+            )
+        }
+    )
+    server.start()
+    try:
+        settings = ParserSettings(
+            max_pages=1,
+            max_depth=0,
+            max_seconds=5.0,
+            request_timeout=1.0,
+            user_agent="test",
+            phone_regions=("US",),
+        )
+        result = SiteParser(settings).parse(f"{server.base_url}/")
+        assert set(result.phones) == {"+14155552671"}
+    finally:
+        server.stop()
+
+
 def test_focused_crawling_prioritizes_contact_pages() -> None:
     server = _TestServer(
         routes={
@@ -312,3 +344,21 @@ def test_settings_env_overrides_file(tmp_path: Any, monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("PARSER_MAX_PAGES", "2")
     settings = ParserSettings.from_env_and_file(str(config_file))
     assert settings.max_pages == 2
+
+
+def test_parse_result_includes_diagnostics_when_requested(test_server: _TestServer) -> None:
+    settings = ParserSettings(
+        max_pages=10,
+        max_depth=2,
+        max_seconds=5.0,
+        request_timeout=1.0,
+        user_agent="test",
+        phone_regions=("RU",),
+    )
+    result = SiteParser(settings).parse(f"{test_server.base_url}/", include_diagnostics=True).as_dict()
+
+    assert "diagnostics" in result
+    diagnostics = result["diagnostics"]
+    assert diagnostics["stop_reason"] in {"completed", "max_pages", "max_seconds"}
+    assert diagnostics["counters"]["scheduled_pages"] >= 1
+    assert diagnostics["counters"]["fetched_pages"] >= 1

@@ -52,19 +52,25 @@ def extract_phones(text: str, *, regions: Iterable[str] | None, soup: BeautifulS
     """Извлекает телефонные номера, используя phonenumbers."""
     phones: set[str] = set()
     effective_regions = _normalize_regions(regions)
+    allowed_regions = set(effective_regions)
+    seen_regional_spans: list[tuple[int, int]] = []
 
     for region in effective_regions:
         for m in PhoneNumberMatcher(text, region, leniency=Leniency.VALID):
-            if _is_valid(m.number):
+            span = (m.start, m.end)
+            if any(_spans_overlap(span, existing) for existing in seen_regional_spans):
+                continue
+            if _is_valid(m.number) and _is_allowed_region(m.number, allowed_regions):
                 phones.add(_format_phone(m.number))
+                seen_regional_spans.append(span)
 
     for m in PhoneNumberMatcher(text, "ZZ", leniency=Leniency.VALID):
-        if _is_valid(m.number):
+        if _is_valid(m.number) and _is_allowed_region(m.number, allowed_regions):
             phones.add(_format_phone(m.number))
 
     for candidate in _iter_idd_candidates(text):
         parsed = _parse_phone(candidate, region="ZZ")
-        if parsed and _is_valid(parsed):
+        if parsed and _is_valid(parsed) and _is_allowed_region(parsed, allowed_regions):
             phones.add(_format_phone(parsed))
 
     if soup is not None:
@@ -87,7 +93,7 @@ def extract_phones(text: str, *, regions: Iterable[str] | None, soup: BeautifulS
                 if parsed is None:
                     continue
 
-            if parsed and _is_valid(parsed):
+            if parsed and _is_valid(parsed) and _is_allowed_region(parsed, allowed_regions):
                 phones.add(_format_phone(parsed))
     return phones
 
@@ -243,9 +249,24 @@ def _parse_phone_with_regions(raw: str, regions: tuple[str, ...]) -> phonenumber
     return None
 
 
+def _spans_overlap(first: tuple[int, int], second: tuple[int, int]) -> bool:
+    """Проверяет пересечение двух диапазонов (начало включительно, конец не включительно)."""
+    return first[0] < second[1] and second[0] < first[1]
+
+
 def _is_valid(number: phonenumbers.PhoneNumber) -> bool:
     """Проверяет валидность телефона."""
     return phonenumbers.is_possible_number(number) and phonenumbers.is_valid_number(number)
+
+
+def _is_allowed_region(number: phonenumbers.PhoneNumber, allowed_regions: set[str]) -> bool:
+    """Проверяет, входит ли номер в разрешённые регионы."""
+    if not allowed_regions:
+        return True
+    region = phonenumbers.region_code_for_number(number)
+    if not region:
+        return False
+    return region.upper() in allowed_regions
 
 
 def _format_phone(number: phonenumbers.PhoneNumber) -> str:

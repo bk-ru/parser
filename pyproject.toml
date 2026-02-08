@@ -21,8 +21,8 @@ dependencies = [
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
-site-parser = "site_parser.cli:main"
-site-parser-api = "site_parser.web:main"
+site-parser = "site_parser.commands.cli:main"
+site-parser-api = "site_parser.api.web:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

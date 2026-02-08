@@ -46,7 +46,7 @@ def _read_config_file(path: Path) -> dict[str, Any]:
 class ParserSettings:
     """Настройки парсера с поддержкой env и файла."""
     max_pages: int = 200
-    max_depth: int = 5
+    max_depth: int = 0
     max_seconds: float = 30.0
     max_concurrency: int = 4
     request_timeout: float = 10.0

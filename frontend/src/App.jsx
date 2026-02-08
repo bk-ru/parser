@@ -469,7 +469,7 @@ export default function App() {
                       onWheel={preventNumberInputWheel}
                       placeholder="0..50"
                     />
-                    <SettingDefault value="5" />
+                    <SettingDefault value="0" />
                   </label>
                   <label>
                     <SettingHeader
